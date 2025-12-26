@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Mini Reigns</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body,html{margin:0;padding:0;width:100%;height:100%;font-family:Arial;background:#111;color:white;}
+#start-screen,#game{width:100vw;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;position:absolute;top:0;left:0;transition:opacity 0.5s;}
+#start-screen button{padding:20px 40px;font-size:24px;cursor:pointer;border:none;border-radius:10px;background:#444;color:white;}
+#game{display:none;flex-direction:column;align-items:center;justify-content:flex-start;overflow:hidden;}
+#stats{width:90%;display:flex;justify-content:space-between;margin-top:10px;}
+.stat{width:23%;}
+.bar{height:10px;background:#333;border-radius:5px;overflow:hidden;}
+.fill{height:100%;background:lime;width:50%;transition:width 0.3s;}
+#card-container{flex:1;display:flex;align-items:center;justify-content:center;width:100%;}
+#card{width:300px;height:180px;background:#2c2c2c;border-radius:12px;padding:20px;text-align:center;cursor:grab;user-select:none;display:flex;flex-direction:column;justify-content:center;align-items:center;transition:transform 0.2s;}
+#card img{max-width:80px;margin-bottom:10px;border-radius:5px;}
+#hint{margin-bottom:20px;opacity:0.6;}
+</style>
+</head>
+<body>
+
+<div id="start-screen">
+  <h1>Mini Reigns</h1>
+  <button id="start-btn">Başla</button>
+</div>
+
+<div id="game">
+  <div id="stats">
+    <div class="stat">👑 <span class="stat-title">Halk</span><div class="bar"><div id="halk" class="fill"></div></div></div>
+    <div class="stat">⛪ <span class="stat-title">Kilise</span><div class="bar"><div id="kilise" class="fill"></div></div></div>
+    <div class="stat">💰 <span class="stat-title">Hazine</span><div class="bar"><div id="hazine" class="fill"></div></div></div>
+    <div class="stat">⚔️ <span class="stat-title">Ordu</span><div class="bar"><div id="ordu" class="fill"></div></div></div>
+  </div>
+  <div id="card-container">
+    <div id="card"><img id="card-img" src="" alt=""><div id="card-text"></div></div>
+  </div>
+  <div id="hint">← HAYIR | EVET →</div>
+</div>
+
+<script>
+const STORAGE_KEY="miniReignsData";
+
+let stats={halk:50,kilise:50,hazine:50,ordu:50};
+let cards=[
+  {text:"Köylüler vergilerin düşürülmesini istiyor.",img:"https://via.placeholder.com/80",yes:{halk:10,hazine:-10},no:{halk:-10}},
+  {text:"Ordu yeni silahlar istiyor.",img:"https://via.placeholder.com/80",yes:{ordu:10,hazine:-15},no:{ordu:-10}}
+];
+let titles={halk:"Halk",kilise:"Kilise",hazine:"Hazine",ordu:"Ordu"};
+let backgrounds={start:"",game:""};
+let musicUrl="";
+
+const startScreen=document.getElementById("start-screen");
+const startBtn=document.getElementById("start-btn");
+const gameDiv=document.getElementById("game");
+const cardEl=document.getElementById("card");
+const cardText=document.getElementById("card-text");
+const cardImg=document.getElementById("card-img");
+
+function loadData(){
+  const data=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");
+  if(data.stats) stats=data.stats;
+  if(data.cards) cards=data.cards;
+  if(data.titles) titles=data.titles;
+  if(data.backgrounds) backgrounds=data.backgrounds;
+  if(data.musicUrl) musicUrl=data.musicUrl;
+
+  updateStats();
+  nextCard();
+
+  document.querySelector('#stats .stat:nth-child(1) .stat-title').innerText=titles.halk;
+  document.querySelector('#stats .stat:nth-child(2) .stat-title').innerText=titles.kilise;
+  document.querySelector('#stats .stat:nth-child(3) .stat-title').innerText=titles.hazine;
+  document.querySelector('#stats .stat:nth-child(4) .stat-title').innerText=titles.ordu;
+
+  if(backgrounds.start) startScreen.style.background=`url(${backgrounds.start}) center/cover no-repeat`;
+  if(backgrounds.game) gameDiv.style.background=`url(${backgrounds.game}) center/cover no-repeat`;
+}
+
+function saveData(){
+  localStorage.setItem(STORAGE_KEY,JSON.stringify({stats,cards,titles,backgrounds,musicUrl}));
+}
+
+startBtn.onclick=()=>{
+  startScreen.style.display="none";
+  gameDiv.style.display="flex";
+};
+
+function updateStats(){
+  for(let key in stats){
+    stats[key]=Math.max(0,Math.min(100,stats[key]));
+    document.getElementById(key).style.width=stats[key]+"%";
+  }
+}
+
+function checkDeath(){
+  for(let key in stats){
+    if(stats[key]<=0||stats[key]>=100){alert("Öldün! Sebep: "+key.toUpperCase());location.reload();}
+  }
+}
+
+let currentCard=null;
+function nextCard(){
+  if(cards.length===0){cardText.innerText="Kart yok";cardImg.src="";return;}
+  currentCard=cards[Math.floor(Math.random()*cards.length)];
+  cardText.innerText=currentCard.text;
+  cardImg.src=currentCard.img||"";
+}
+
+let startX=0,dragging=false;
+cardEl.addEventListener("mousedown",e=>{dragging=true;startX=e.clientX;});
+document.addEventListener("mousemove",e=>{if(!dragging)return;let dx=e.clientX-startX;cardEl.style.transform=`translateX(${dx}px) rotate(${dx/10}deg)`;});
+document.addEventListener("mouseup",e=>{if(!dragging)return;dragging=false;handleDecision(e.clientX-startX);});
+cardEl.addEventListener("touchstart",e=>{startX=e.touches[0].clientX;});
+cardEl.addEventListener("touchmove",e=>{let dx=e.touches[0].clientX-startX;cardEl.style.transform=`translateX(${dx}px) rotate(${dx/10}deg)`;});
+cardEl.addEventListener("touchend",e=>{let dx=parseInt(cardEl.style.transform.match(/-?\d+/))||0;handleDecision(dx);});
+
+function handleDecision(dx){
+  if(dx>100) applyResult("yes");
+  else if(dx<-100) applyResult("no");
+  else cardEl.style.transform="translateX(0px)";
+}
+
+function applyResult(choice){
+  const effects=currentCard[choice];
+  for(let key in effects) stats[key]+=effects[key];
+  updateStats(); checkDeath(); nextCard();
+}
+
+loadData();
+nextCard();
+updateStats();
+</script>
+</body>
+</html>
