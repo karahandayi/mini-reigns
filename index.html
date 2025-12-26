@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Mini Reigns</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #1e1e1e;
+  color: white;
+  overflow: hidden;
+}
+
+#game {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#stats {
+  width: 90%;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.stat {
+  width: 23%;
+}
+
+.bar {
+  height: 10px;
+  background: #333;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  background: lime;
+  width: 50%;
+  transition: width 0.3s;
+}
+
+#card-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#card {
+  width: 300px;
+  height: 180px;
+  background: #2c2c2c;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  cursor: grab;
+  user-select: none;
+  transition: transform 0.2s;
+}
+
+#hint {
+  margin-bottom: 20px;
+  opacity: 0.6;
+}
+</style>
+</head>
+
+<body>
+<div id="game">
+
+  <div id="stats">
+    <div class="stat">👑 Halk<div class="bar"><div id="halk" class="fill"></div></div></div>
+    <div class="stat">⛪ Kilise<div class="bar"><div id="kilise" class="fill"></div></div></div>
+    <div class="stat">💰 Hazine<div class="bar"><div id="hazine" class="fill"></div></div></div>
+    <div class="stat">⚔️ Ordu<div class="bar"><div id="ordu" class="fill"></div></div></div>
+  </div>
+
+  <div id="card-container">
+    <div id="card"></div>
+  </div>
+
+  <div id="hint">← HAYIR | EVET →</div>
+
+</div>
+
+<script>
+let stats = {
+  halk: 50,
+  kilise: 50,
+  hazine: 50,
+  ordu: 50
+};
+
+const cards = [
+  {
+    text: "Köylüler vergilerin düşürülmesini istiyor.",
+    yes: { halk: +10, hazine: -10 },
+    no: { halk: -10 }
+  },
+  {
+    text: "Kilise daha büyük bir tapınak talep ediyor.",
+    yes: { kilise: +10, hazine: -10 },
+    no: { kilise: -10 }
+  },
+  {
+    text: "Ordu yeni silahlar istiyor.",
+    yes: { ordu: +10, hazine: -15 },
+    no: { ordu: -10 }
+  },
+  {
+    text: "Bir festival düzenlensin mi?",
+    yes: { halk: +15, hazine: -10 },
+    no: { halk: -10 }
+  }
+];
+
+let currentCard = null;
+const cardEl = document.getElementById("card");
+
+function updateStats() {
+  for (let key in stats) {
+    stats[key] = Math.max(0, Math.min(100, stats[key]));
+    document.getElementById(key).style.width = stats[key] + "%";
+  }
+}
+
+function checkDeath() {
+  for (let key in stats) {
+    if (stats[key] <= 0 || stats[key] >= 100) {
+      alert("Öldün! Sebep: " + key.toUpperCase());
+      location.reload();
+    }
+  }
+}
+
+function nextCard() {
+  currentCard = cards[Math.floor(Math.random() * cards.length)];
+  cardEl.innerText = currentCard.text;
+  cardEl.style.transform = "translateX(0px)";
+}
+
+let startX = 0;
+let dragging = false;
+
+cardEl.addEventListener("mousedown", e => {
+  dragging = true;
+  startX = e.clientX;
+});
+
+document.addEventListener("mousemove", e => {
+  if (!dragging) return;
+  let dx = e.clientX - startX;
+  cardEl.style.transform = `translateX(${dx}px) rotate(${dx/10}deg)`;
+});
+
+document.addEventListener("mouseup", e => {
+  if (!dragging) return;
+  dragging = false;
+  let dx = e.clientX - startX;
+  handleDecision(dx);
+});
+
+cardEl.addEventListener("touchstart", e => {
+  startX = e.touches[0].clientX;
+});
+
+cardEl.addEventListener("touchmove", e => {
+  let dx = e.touches[0].clientX - startX;
+  cardEl.style.transform = `translateX(${dx}px) rotate(${dx/10}deg)`;
+});
+
+cardEl.addEventListener("touchend", e => {
+  let dx = parseInt(cardEl.style.transform.match(/-?\d+/)) || 0;
+  handleDecision(dx);
+});
+
+function handleDecision(dx) {
+  if (dx > 100) applyResult("yes");
+  else if (dx < -100) applyResult("no");
+  else cardEl.style.transform = "translateX(0px)";
+}
+
+function applyResult(choice) {
+  const effects = currentCard[choice];
+  for (let key in effects) {
+    stats[key] += effects[key];
+  }
+  updateStats();
+  checkDeath();
+  nextCard();
+}
+
+updateStats();
+nextCard();
+</script>
+
+</body>
+</html>
